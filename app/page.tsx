@@ -66,6 +66,15 @@ export default function Home() {
     }
   }, []);
 
+  // Redraw original canvas when image changes
+  useEffect(() => {
+    if (originalImage && originalCanvasRef.current) {
+      requestAnimationFrame(() => {
+        drawOriginal(originalImage);
+      });
+    }
+  }, [originalImage]);
+
   const colorDistance = (c1: {r: number, g: number, b: number}, c2: {r: number, g: number, b: number}) => {
     const rmean = (c1.r + c2.r) / 2;
     const r = c1.r - c2.r;
@@ -92,30 +101,50 @@ export default function Home() {
   const drawOriginal = (img: HTMLImageElement) => {
     if (!originalCanvasRef.current) return;
     
-    const ctx = originalCanvasRef.current.getContext('2d');
+    const canvas = originalCanvasRef.current;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    ctx.clearRect(0, 0, 400, 400);
+    // Clear the canvas first
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    const scale = Math.min(400 / img.width, 400 / img.height);
-    const x = (400 - img.width * scale) / 2;
-    const y = (400 - img.height * scale) / 2;
+    // Calculate scaling to fit within canvas while maintaining aspect ratio
+    const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+    const x = (canvas.width - img.width * scale) / 2;
+    const y = (canvas.height - img.height * scale) / 2;
     
-    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+    // Draw with a slight delay to ensure canvas is ready
+    requestAnimationFrame(() => {
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+    });
   };
 
   const handleImageUpload = (file: File) => {
+    // Reset states first
+    setShowDownload(false);
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        setOriginalImage(img);
-        drawOriginal(img);
-        setShowControls(true);
-        setShowPreview(true);
-        setShowDownload(false);
+        // Ensure image is fully loaded before processing
+        setTimeout(() => {
+          setOriginalImage(img);
+          setShowPreview(true);
+          setShowControls(true);
+          // Draw after state updates
+          requestAnimationFrame(() => {
+            drawOriginal(img);
+          });
+        }, 100);
+      };
+      img.onerror = () => {
+        alert('Failed to load image. Please try again.');
       };
       img.src = e.target?.result as string;
+    };
+    reader.onerror = () => {
+      alert('Failed to read file. Please try again.');
     };
     reader.readAsDataURL(file);
   };
@@ -151,18 +180,22 @@ export default function Home() {
     setLoading(true);
     
     setTimeout(() => {
-      const ctx = outputCanvasRef.current!.getContext('2d');
-      if (!ctx) return;
+      const canvas = outputCanvasRef.current!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setLoading(false);
+        return;
+      }
       
-      ctx.clearRect(0, 0, 400, 400);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      const scale = Math.min(400 / originalImage.width, 400 / originalImage.height);
-      const x = (400 - originalImage.width * scale) / 2;
-      const y = (400 - originalImage.height * scale) / 2;
+      const scale = Math.min(canvas.width / originalImage.width, canvas.height / originalImage.height);
+      const x = (canvas.width - originalImage.width * scale) / 2;
+      const y = (canvas.height - originalImage.height * scale) / 2;
       
       ctx.drawImage(originalImage, x, y, originalImage.width * scale, originalImage.height * scale);
       
-      const imageData = ctx.getImageData(0, 0, 400, 400);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       
       for (let i = 0; i < data.length; i += 4) {
@@ -404,10 +437,17 @@ export default function Home() {
           </div>
           
           {showControls && (
-            <div style={{ textAlign: 'center', marginTop: '20px' }}>
-              <button onClick={handleHack} disabled={loading}>🔓 EXECUTE HACK</button>
+            <div className="controls-container">
+              <button 
+                onClick={handleHack} 
+                disabled={loading}
+              >
+                🔓 EXECUTE HACK
+              </button>
               {showDownload && (
-                <button onClick={handleDownload} style={{ marginLeft: '10px' }}>💾 DOWNLOAD HDR</button>
+                <button onClick={handleDownload}>
+                  💾 DOWNLOAD HDR
+                </button>
               )}
             </div>
           )}
@@ -423,11 +463,11 @@ export default function Home() {
           <div className="preview-container">
             <div className="preview-box">
               <h3>// ORIGINAL</h3>
-              <canvas ref={originalCanvasRef} width="400" height="400"></canvas>
+              <canvas ref={originalCanvasRef} width="300" height="300"></canvas>
             </div>
             <div className="preview-box">
               <h3>// HACKED</h3>
-              <canvas ref={outputCanvasRef} width="400" height="400"></canvas>
+              <canvas ref={outputCanvasRef} width="300" height="300"></canvas>
             </div>
           </div>
         )}
@@ -501,7 +541,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
+    </div>
     </>
   );
 }

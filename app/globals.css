@@ -123,6 +123,8 @@ h1 {
     cursor: pointer;
     transition: all 0.3s;
     background: rgba(0, 255, 0, 0.02);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .upload-zone:hover {
@@ -157,12 +159,19 @@ button {
     text-transform: uppercase;
     transition: all 0.3s;
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+    min-height: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
-button:hover {
+button:hover:not(:disabled) {
     background: #00aa00;
     box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
     transform: scale(1.05);
+}
+
+button:active:not(:disabled) {
+    transform: scale(0.98);
 }
 
 button:disabled {
@@ -170,12 +179,13 @@ button:disabled {
     color: #006600;
     cursor: not-allowed;
     box-shadow: none;
+    opacity: 0.5;
 }
 
 .preview-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 15px;
     margin-top: 20px;
 }
 
@@ -187,11 +197,13 @@ button:disabled {
     margin-bottom: 10px;
     color: #00ff00;
     text-shadow: 0 0 5px #00ff00;
+    font-size: 1em;
 }
 
 .preview-box canvas {
     border: 2px solid #00ff00;
     max-width: 100%;
+    width: 100%;
     height: auto;
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
 }
@@ -201,6 +213,20 @@ button:disabled {
     padding: 20px;
     font-size: 1.2em;
     animation: pulse 1.5s infinite;
+}
+
+.controls-container {
+    text-align: center;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.controls-container button {
+    max-width: 300px;
+    width: 100%;
 }
 
 @keyframes pulse {
@@ -234,12 +260,85 @@ button:disabled {
 }
 
 @media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
     .preview-container {
         grid-template-columns: 1fr;
+        gap: 15px;
     }
     
     h1 {
         font-size: 1.8em;
+    }
+
+    .header {
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .subtitle {
+        font-size: 0.9em;
+    }
+
+    button {
+        padding: 10px 20px;
+        font-size: 0.9em;
+        margin: 5px;
+        display: inline-block;
+    }
+
+    .upload-zone {
+        padding: 30px 15px;
+    }
+
+    .upload-icon {
+        font-size: 2.5em;
+    }
+
+    .terminal {
+        padding: 15px;
+    }
+
+    .preview-box canvas {
+        max-width: 100%;
+    }
+
+    .terminal {
+        padding: 15px;
+        margin: 15px 0;
+    }
+
+    .upload-zone {
+        padding: 30px 20px;
+    }
+
+    .upload-icon {
+        font-size: 2.5em;
+    }
+
+    button {
+        padding: 12px 20px;
+        font-size: 0.9em;
+    }
+
+    .controls-container {
+        padding: 0 10px;
+    }
+
+    .controls-container button {
+        max-width: 100%;
+    }
+
+    .preview-box canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .footer {
+        font-size: 0.9em;
+        padding: 15px;
     }
 }
 
