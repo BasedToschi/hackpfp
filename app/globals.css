@@ -305,6 +305,30 @@ button:disabled {
         max-width: 100%;
     }
 
+    /* Hide QR code on mobile */
+    .qr-code-container {
+        display: none;
+    }
+
+    /* Adjust modal content for mobile */
+    .modal-content {
+        padding: 25px 20px;
+        width: 95%;
+    }
+
+    .modal-header h2 {
+        font-size: 1.5em;
+    }
+
+    .modal-joke {
+        font-size: 1em;
+        padding: 10px;
+    }
+
+    .eth-address {
+        font-size: 0.9em;
+    }
+
     .terminal {
         padding: 15px;
         margin: 15px 0;
