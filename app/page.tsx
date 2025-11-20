@@ -153,6 +153,10 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (file) {
       handleImageUpload(file);
+      // Reset input so same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
