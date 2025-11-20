@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Profile Hacker v1.337</title>
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Share+Tech+Mono&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            color: #00ff00;
+            font-family: 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 50%,
+                rgba(0, 255, 0, 0.02) 51%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+            animation: scanline 8s linear infinite;
+        }
+        
+        @keyframes scanline {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(100%); }
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #00ff00;
+            background: rgba(0, 255, 0, 0.05);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            position: relative;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #00ff00, #00aa00);
+            z-index: -1;
+            filter: blur(10px);
+            opacity: 0.3;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+            margin-bottom: 10px;
+            animation: flicker 3s infinite alternate;
+        }
+        
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .subtitle {
+            color: #00aa00;
+            font-size: 1.1em;
+        }
+        
+        .terminal {
+            background: rgba(0, 20, 0, 0.8);
+            border: 2px solid #00ff00;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
+        }
+        
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #00ff00;
+        }
+        
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+        
+        .terminal-title {
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+        
+        .upload-zone {
+            border: 2px dashed #00ff00;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(0, 255, 0, 0.02);
+        }
+        
+        .upload-zone:hover {
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        .upload-zone.dragging {
+            background: rgba(0, 255, 0, 0.15);
+            border-color: #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+        
+        button:hover {
+            background: #00aa00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+            transform: scale(1.05);
+        }
+        
+        button:disabled {
+            background: #003300;
+            color: #006600;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .preview-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .preview-box {
+            text-align: center;
+        }
+        
+        .preview-box h3 {
+            margin-bottom: 10px;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .preview-box canvas {
+            border: 2px solid #00ff00;
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2em;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .command-line {
+            color: #00ff00;
+            margin: 10px 0;
+            font-family: 'Courier Prime', monospace;
+        }
+        
+        .command-line::before {
+            content: '> ';
+            color: #00aa00;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 1px solid #00ff00;
+            color: #00aa00;
+        }
+        
+        @media (max-width: 768px) {
+            .preview-container {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+        
+        .glitch {
+            position: relative;
+        }
+        
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .glitch::before {
+            animation: glitch-1 2s infinite;
+            color: #ff00ff;
+            z-index: -1;
+        }
+        
+        .glitch::after {
+            animation: glitch-2 2s infinite;
+            color: #00ffff;
+            z-index: -2;
+        }
+        
+        @keyframes glitch-1 {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        
+        @keyframes glitch-2 {
+            0% { transform: translate(0); }
+            20% { transform: translate(2px, -2px); }
+            40% { transform: translate(2px, 2px); }
+            60% { transform: translate(-2px, -2px); }
+            80% { transform: translate(-2px, 2px); }
+            100% { transform: translate(0); }
+        }
+        
+        /* Donation Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: #0a0a0a;
+            border: 3px solid #00ff00;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.5);
+            animation: modalSlideIn 0.5s ease-out;
+            position: relative;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .modal-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .modal-header h2 {
+            font-size: 2em;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            margin-bottom: 10px;
+        }
+        
+        .modal-joke {
+            color: #00aa00;
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 3px solid #00ff00;
+            background: rgba(0, 255, 0, 0.05);
+        }
+        
+        .eth-address-container {
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .eth-label {
+            color: #00aa00;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        
+        .eth-address {
+            font-size: 1.1em;
+            color: #00ff00;
+            word-break: break-all;
+            font-family: 'Courier Prime', monospace;
+            text-shadow: 0 0 5px #00ff00;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .eth-address:hover {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+        
+        .qr-code-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .qr-code {
+            background: white;
+            padding: 10px;
+            display: inline-block;
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        .copy-button {
+            background: transparent;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 10px 20px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            transition: all 0.3s;
+        }
+        
+        .copy-button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .copy-button.copied {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .modal-footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #00aa00;
+            font-size: 0.9em;
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-size: 2em;
+            cursor: pointer;
+            padding: 5px 15px;
+            line-height: 1;
+            transition: all 0.3s;
+        }
+        
+        .close-modal:hover {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            transform: rotate(90deg);
+        }
+        
+        .crypto-icon {
+            font-size: 3em;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* HDR Info Button Styles */
+        .info-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: #00ff00;
+            color: #000;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            transition: all 0.3s;
+            z-index: 9998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        .info-button:hover {
+            background: #00aa00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+            transform: scale(1.1) rotate(10deg);
+        }
+        
+        .hdr-modal {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            max-width: 400px;
+            background: #0a0a0a;
+            border: 3px solid #00ff00;
+            padding: 25px;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.5);
+            z-index: 9998;
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        .hdr-modal.active {
+            display: block;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .hdr-modal h3 {
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .hdr-modal p {
+            color: #00aa00;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .hdr-modal .close-hdr {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .hdr-modal .close-hdr:hover {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        
+        @media (max-width: 768px) {
+            .hdr-modal {
+                left: 20px;
+                right: 20px;
+                bottom: 80px;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1 class="glitch" data-text="X PROFILE HACKER">X PROFILE HACKER</h1>
+            <div class="subtitle">v1.337 // Makes Your Picture Shine... Literally</div>
+        </div>
+        
+        <div class="terminal">
+            <div class="terminal-header">
+                <div class="terminal-dot dot-red"></div>
+                <div class="terminal-dot dot-yellow"></div>
+                <div class="terminal-dot dot-green"></div>
+                <div class="terminal-title">root@x-hacker:~/image-transform</div>
+            </div>
+            
+            <div class="command-line">Initializing color palette exploit...</div>
+            <div class="command-line">Loading quantum chromatic filters...</div>
+            <div class="command-line">Ready to hack your profile pic!</div>
+        </div>
+        
+        <div class="terminal">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📁</div>
+                <div style="font-size: 1.2em; margin-bottom: 10px;">
+                    DROP YOUR IMAGE HERE
+                </div>
+                <div style="color: #00aa00; font-size: 0.9em;">
+                    or click to select from your files
+                </div>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            
+            <div id="controls" style="text-align: center; margin-top: 20px; display: none;">
+                <button id="hackButton">🔓 EXECUTE HACK</button>
+                <button id="downloadButton" style="margin-left: 10px; display: none;">💾 DOWNLOAD HDR</button>
+            </div>
+            
+            <div id="loading" class="loading" style="display: none;">
+                ⚡ HACKING IN PROGRESS...
+            </div>
+        </div>
+        
+        <div id="previewContainer" class="preview-container" style="display: none;">
+            <div class="preview-box">
+                <h3>// ORIGINAL</h3>
+                <canvas id="originalCanvas" width="400" height="400"></canvas>
+            </div>
+            <div class="preview-box">
+                <h3>// HACKED</h3>
+                <canvas id="outputCanvas" width="400" height="400"></canvas>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div>▲ Powered by Terminal Wizardry ▲</div>
+            <div style="margin-top: 10px; font-size: 0.8em;">
+                Warning: This tool may cause extreme coolness
+            </div>
+            <div style="margin-top: 15px;">
+                Built with ⚡ by <a href="https://x.com/0xdanya_xo" target="_blank" style="color: #00ff00; text-decoration: none; text-shadow: 0 0 5px #00ff00;">0xdanya_xo</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- HDR Info Button and Modal -->
+    <button class="info-button" id="infoButton" title="HDR Information">?</button>
+    
+    <div class="hdr-modal" id="hdrModal">
+        <button class="close-hdr" id="closeHdr">×</button>
+        <h3>⚡ HDR DISPLAY INFO</h3>
+        <p>This hack makes your picture <strong>shine... literally!</strong></p>
+        <p>Downloaded images include <strong>Rec2020-PQ HDR color profile</strong>!</p>
+        <p>The vibrant color palette and transformation work best on:</p>
+        <div class="command-line" style="font-size: 0.9em;">Modern smartphones with OLED/AMOLED screens</div>
+        <div class="command-line" style="font-size: 0.9em;">HDR-capable monitors and laptops</div>
+        <div class="command-line" style="font-size: 0.9em;">Tablets with HDR support</div>
+        <p style="margin-top: 15px; font-size: 0.9em;">Your transformed image will display HDR colors that truly <em>pop</em>! ✨</p>
+    </div>
+    
+    <!-- Donation Modal -->
+    <div class="modal-overlay" id="donationModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeModal">×</button>
+            
+            <div class="modal-header">
+                <div class="crypto-icon">💎</div>
+                <h2 class="glitch" data-text="HACK SUCCESSFUL!">HACK SUCCESSFUL!</h2>
+            </div>
+            
+            <div class="modal-joke" id="jokeText">
+                <!-- Joke will be inserted here -->
+            </div>
+            
+            <div class="eth-address-container">
+                <div class="eth-label">// EVM DONATION ADDRESS (ETH, BSC, POLYGON, ARBITRUM, BASE, etc.)</div>
+                <div class="eth-address" id="ethAddress" title="Click to copy">
+                    0x63428e70a8016d10E8e2f7da440c898063afA299
+                </div>
+                <button class="copy-button" id="copyButton">📋 COPY ADDRESS</button>
+            </div>
+            
+            <div class="qr-code-container">
+                <div class="qr-code">
+                    <canvas id="qrCode"></canvas>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <div class="command-line">No pressure, but your donation helps keep this hack alive!</div>
+                <div style="margin-top: 10px;">Built with ⚡ by <a href="https://x.com/0xdanya_xo" target="_blank" style="color: #00ff00; text-decoration: none; text-shadow: 0 0 5px #00ff00;">0xdanya_xo</a></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const hackButton = document.getElementById('hackButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const controls = document.getElementById('controls');
+        const loading = document.getElementById('loading');
+        const previewContainer = document.getElementById('previewContainer');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const donationModal = document.getElementById('donationModal');
+        const closeModal = document.getElementById('closeModal');
+        const copyButton = document.getElementById('copyButton');
+        const ethAddress = document.getElementById('ethAddress');
+        const jokeText = document.getElementById('jokeText');
+        const infoButton = document.getElementById('infoButton');
+        const hdrModal = document.getElementById('hdrModal');
+        const closeHdr = document.getElementById('closeHdr');
+        
+        let originalImage = null;
+        
+        // ICC Profile (Rec2020 with PQ) as base64
+        const ICC_PROFILE_BASE64 = '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GBdnPoAAGBeAAIAAIe0AAIAAIe0EcIAAIe0JwIAAIe0QL4AAIe0YF4AAIe0h7YAAIe0uRIAAIe09vYAAIe1QyoAAIe1nPoAAIe2AAIAALkQAAIAALkQEcIAALkQJwIAALkQQL4AALkQYF4AALkQh7YAALkQuRIAALkQ9vYAALkRQyoAALkRnPoAALkSAAIAAPb0AAIAAPb0EcIAAPb0JwIAAPb0QL4AAPb0YF4AAPb0h7YAAPb0uRIAAPb09vYAAPb1QyoAAPb1nPoAAPb2AAIAAUMoAAIAAUMoEcIAAUMoJwIAAUMoQL4AAUMoYF4AAUMoh7YAAUMouRIAAUMo9vYAAUMpQyoAAUMpnPoAAUMqAAIAAZz4AAIAAZz4EcIAAZz4JwIAAZz4QL4AAZz4YF4AAZz4h7YAAZz4uRIAAZz49vYAAZz5QyoAAZz5nPoAAZz6AAIAAgAAAAIAAgAAEcIAAgAAJwIAAgAAQL4AAgAAYF4AAgAAh7YAAgAAuRIAAgAA9vYAAgABQyoAAgABnPoAAgACAAAAAY3VydgAAAAAAAABBAAAAAgAHABEAIAA4AFgAhAC/AQoBaQHhAnYDLQQKBRUGVAfPCY8LnA4DEMQT+hefG8UgZSWeK3cx5DjQQIRItlF+WrdkfG56eNuDio5UmUOkSK8yukPFVNBn27HnHPK9/t7//////////////////////////////////////////wAAY3VydgAAAAAAAABBAAAAAgAHABEAIAA4AFgAhAC/AQoBaQHhAnYDLQQKBRUGVAfPCY8LnA4DEMQT+hefG8UgZSWeK3cx5DjQQIRItlF+WrdkfG56eNuDio5UmUOkSK8yukPFVNBn27HnHPK9/t7//////////////////////////////////////////wAAY3VydgAAAAAAAABBAAAAAgAHABEAIAA4AFgAhAC/AQoBaQHhAnYDLQQKBRUGVAfPCY8LnA4DEMQT+hefG8UgZSWeK3cx5DjQQIRItlF+WrdkfG56eNuDio5UmUOkSK8yukPFVNBn27HnHPK9/t7//////////////////////////////////////////wAAAACsaAAAKmkAACAHAABHbwAArOMAAAuu////gQAAB60AAMwTAAAAAAAAAAAAAAAAcGFyYQAAAAAAAAAAAAEAAHBhcmEAAAAAAAAAAAABAABwYXJhAAAAAAAAAAAAAQAAbUJBIAAAAAADAwAAAAAAIAAAAAAAAAAAAAAAAAAAAABwYXJhAAAAAAAAAAAAAQAAcGFyYQAAAAAAAAAAAAEAAHBhcmEAAAAAAAAAAAABAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADY=';
+        
+        // HDR Info Modal handlers
+        infoButton.addEventListener('click', () => {
+            hdrModal.classList.toggle('active');
+        });
+        
+        closeHdr.addEventListener('click', () => {
+            hdrModal.classList.remove('active');
+        });
+        
+        // Close HDR modal when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!hdrModal.contains(e.target) && e.target !== infoButton) {
+                hdrModal.classList.remove('active');
+            }
+        });
+        
+        // Hacker jokes about donations
+        const jokes = [
+            "⚡ You just successfully exploited our color palette algorithm! Now exploit your wallet (optional but appreciated). Works on any EVM chain!",
+            "🔓 Access Granted! Your image has been hacked. Consider dropping some crypto to support our underground operation. ETH, Polygon, Base - we accept all EVM chains!",
+            "🎯 Mission Complete! Your picture shines... literally! Donations on any EVM chain power our quantum chromatic filters.",
+            "⚙️ Hack executed flawlessly! If you enjoyed this free exploit, consider fueling our caffeine-to-code converter. Same address, any EVM chain!",
+            "🚀 Image transformation successful! Help us keep the servers running and the memes flowing with a donation. ETH, Arbitrum, Optimism - all welcome!",
+            "🔥 Your image is fire! Keep our blockchain dreams alive with some sweet crypto. Works across all EVM chains!",
+            "💎 Diamond hands deserved! If this tool made you smile, consider sharing some love on any EVM chain you prefer.",
+            "🎨 Artistic exploit complete! Support the cypherpunk movement, one donation at a time. Multi-chain friendly!",
+            "⭐ You're a star! This hack was brought to you by coffee, code, and community support. Crypto accepted on all EVM chains!"
+        ];
+        
+        // Color palette from the transformation
+        const palette = [
+            { r: 10, g: 10, b: 10 },       // Black
+            { r: 255, g: 255, b: 255 },    // White
+            { r: 0, g: 170, b: 120 },      // Teal/Green
+            { r: 255, g: 80, b: 100 },     // Red/Pink
+            { r: 255, g: 220, b: 120 },    // Yellow/Beige
+            { r: 170, g: 100, b: 200 },    // Purple
+            { r: 220, g: 200, b: 180 },    // Skin tone
+        ];
+        
+        // Function to embed ICC profile into PNG
+        function embedICCProfile(canvas) {
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => {
+                    const reader = new FileReader();
+                    reader.onload = function() {
+                        const arrayBuffer = this.result;
+                        const uint8Array = new Uint8Array(arrayBuffer);
+                        
+                        // Decode ICC profile from base64
+                        const iccProfileData = atob(ICC_PROFILE_BASE64);
+                        const iccBytes = new Uint8Array(iccProfileData.length);
+                        for (let i = 0; i < iccProfileData.length; i++) {
+                            iccBytes[i] = iccProfileData.charCodeAt(i);
+                        }
+                        
+                        // Compress ICC profile with zlib (required for iCCP chunk)
+                        const compressed = pako.deflate(iccBytes);
+                        
+                        // Create iCCP chunk
+                        const profileName = 'Rec2020-PQ';
+                        const nameBytes = new TextEncoder().encode(profileName);
+                        
+                        // iCCP chunk data: name + null + compression method (0) + compressed profile
+                        const iccpData = new Uint8Array(nameBytes.length + 1 + 1 + compressed.length);
+                        iccpData.set(nameBytes, 0);
+                        iccpData[nameBytes.length] = 0; // null terminator
+                        iccpData[nameBytes.length + 1] = 0; // compression method (0 = deflate)
+                        iccpData.set(compressed, nameBytes.length + 2);
+                        
+                        // Find IHDR chunk end (should be at byte 33)
+                        let insertPos = 33;
+                        
+                        // Create new PNG with iCCP chunk inserted after IHDR
+                        const newSize = uint8Array.length + iccpData.length + 12; // +12 for chunk overhead
+                        const newPng = new Uint8Array(newSize);
+                        
+                        // Copy PNG signature and IHDR chunk
+                        newPng.set(uint8Array.subarray(0, insertPos), 0);
+                        
+                        // Write iCCP chunk
+                        let pos = insertPos;
+                        
+                        // Length (4 bytes, big-endian)
+                        const length = iccpData.length;
+                        newPng[pos++] = (length >> 24) & 0xFF;
+                        newPng[pos++] = (length >> 16) & 0xFF;
+                        newPng[pos++] = (length >> 8) & 0xFF;
+                        newPng[pos++] = length & 0xFF;
+                        
+                        // Chunk type "iCCP" (4 bytes)
+                        newPng[pos++] = 0x69; // i
+                        newPng[pos++] = 0x43; // C
+                        newPng[pos++] = 0x43; // C
+                        newPng[pos++] = 0x50; // P
+                        
+                        // Chunk data
+                        newPng.set(iccpData, pos);
+                        pos += iccpData.length;
+                        
+                        // CRC (4 bytes) - calculate CRC32 of type + data
+                        const crcData = new Uint8Array(4 + iccpData.length);
+                        crcData[0] = 0x69;
+                        crcData[1] = 0x43;
+                        crcData[2] = 0x43;
+                        crcData[3] = 0x50;
+                        crcData.set(iccpData, 4);
+                        const crc = calculateCRC32(crcData);
+                        newPng[pos++] = (crc >> 24) & 0xFF;
+                        newPng[pos++] = (crc >> 16) & 0xFF;
+                        newPng[pos++] = (crc >> 8) & 0xFF;
+                        newPng[pos++] = crc & 0xFF;
+                        
+                        // Copy rest of original PNG
+                        newPng.set(uint8Array.subarray(insertPos), pos);
+                        
+                        // Create blob from new PNG
+                        const newBlob = new Blob([newPng], { type: 'image/png' });
+                        resolve(newBlob);
+                    };
+                    reader.readAsArrayBuffer(blob);
+                }, 'image/png');
+            });
+        }
+        
+        // CRC32 calculation for PNG chunks
+        function calculateCRC32(data) {
+            let crc = 0xFFFFFFFF;
+            for (let i = 0; i < data.length; i++) {
+                crc = crc ^ data[i];
+                for (let j = 0; j < 8; j++) {
+                    crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1));
+                }
+            }
+            return crc ^ 0xFFFFFFFF;
+        }
+        
+        // Generate QR code for ETH address
+        function generateQRCode() {
+            const qrContainer = document.getElementById('qrCode');
+            if (qrContainer && !qrContainer.hasChildNodes()) {
+                new QRCode(qrContainer, {
+                    text: "ethereum:0x63428e70a8016d10E8e2f7da440c898063afA299",
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+        }
+        
+        // Show donation modal with random joke
+        function showDonationModal() {
+            const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
+            jokeText.textContent = randomJoke;
+            donationModal.classList.add('active');
+            generateQRCode();
+        }
+        
+        // Close modal
+        closeModal.addEventListener('click', () => {
+            donationModal.classList.remove('active');
+        });
+        
+        // Close modal when clicking outside
+        donationModal.addEventListener('click', (e) => {
+            if (e.target === donationModal) {
+                donationModal.classList.remove('active');
+            }
+        });
+        
+        // Copy ETH address to clipboard
+        async function copyAddress() {
+            const address = "0x63428e70a8016d10E8e2f7da440c898063afA299";
+            try {
+                await navigator.clipboard.writeText(address);
+                copyButton.textContent = "✅ COPIED!";
+                copyButton.classList.add('copied');
+                setTimeout(() => {
+                    copyButton.textContent = "📋 COPY ADDRESS";
+                    copyButton.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                const textArea = document.createElement('textarea');
+                textArea.value = address;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    copyButton.textContent = "✅ COPIED!";
+                    copyButton.classList.add('copied');
+                    setTimeout(() => {
+                        copyButton.textContent = "📋 COPY ADDRESS";
+                        copyButton.classList.remove('copied');
+                    }, 2000);
+                } catch (err) {
+                    alert('Failed to copy. Please copy manually: ' + address);
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+        
+        copyButton.addEventListener('click', copyAddress);
+        ethAddress.addEventListener('click', copyAddress);
+        
+        uploadZone.addEventListener('click', () => fileInput.click());
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragging');
+        });
+        
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragging');
+        });
+        
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragging');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleImageUpload(file);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleImageUpload(file);
+            }
+        });
+        
+        function handleImageUpload(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    drawOriginal();
+                    controls.style.display = 'block';
+                    previewContainer.style.display = 'grid';
+                    downloadButton.style.display = 'none';
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function drawOriginal() {
+            const ctx = originalCanvas.getContext('2d');
+            ctx.clearRect(0, 0, 400, 400);
+            
+            const scale = Math.min(400 / originalImage.width, 400 / originalImage.height);
+            const x = (400 - originalImage.width * scale) / 2;
+            const y = (400 - originalImage.height * scale) / 2;
+            
+            ctx.drawImage(originalImage, x, y, originalImage.width * scale, originalImage.height * scale);
+        }
+        
+        function colorDistance(c1, c2) {
+            const rmean = (c1.r + c2.r) / 2;
+            const r = c1.r - c2.r;
+            const g = c1.g - c2.g;
+            const b = c1.b - c2.b;
+            return Math.sqrt((2 + rmean/256) * r * r + 4 * g * g + (2 + (255-rmean)/256) * b * b);
+        }
+        
+        function findClosestColor(r, g, b) {
+            let minDist = Infinity;
+            let closestColor = palette[0];
+            
+            for (const color of palette) {
+                const dist = colorDistance({ r, g, b }, color);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestColor = color;
+                }
+            }
+            
+            return closestColor;
+        }
+        
+        hackButton.addEventListener('click', () => {
+            loading.style.display = 'block';
+            hackButton.disabled = true;
+            
+            setTimeout(() => {
+                const ctx = outputCanvas.getContext('2d');
+                ctx.clearRect(0, 0, 400, 400);
+                
+                const scale = Math.min(400 / originalImage.width, 400 / originalImage.height);
+                const x = (400 - originalImage.width * scale) / 2;
+                const y = (400 - originalImage.height * scale) / 2;
+                
+                ctx.drawImage(originalImage, x, y, originalImage.width * scale, originalImage.height * scale);
+                
+                const imageData = ctx.getImageData(0, 0, 400, 400);
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    const closest = findClosestColor(r, g, b);
+                    
+                    data[i] = closest.r;
+                    data[i + 1] = closest.g;
+                    data[i + 2] = closest.b;
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+                
+                loading.style.display = 'none';
+                hackButton.disabled = false;
+                downloadButton.style.display = 'inline-block';
+            }, 1000);
+        });
+        
+        // Download with ICC profile embedding
+        downloadButton.addEventListener('click', async () => {
+            loading.style.display = 'block';
+            loading.textContent = '⚡ EMBEDDING HDR PROFILE...';
+            
+            try {
+                // Embed ICC profile in PNG
+                const blob = await embedICCProfile(outputCanvas);
+                
+                // Create download link
+                const link = document.createElement('a');
+                link.download = 'x-profile-hacked-hdr.png';
+                link.href = URL.createObjectURL(blob);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+                
+                loading.style.display = 'none';
+                loading.textContent = '⚡ HACKING IN PROGRESS...';
+                
+                // Show donation modal after download starts
+                setTimeout(() => {
+                    showDonationModal();
+                }, 500);
+            } catch (error) {
+                console.error('Error embedding ICC profile:', error);
+                loading.style.display = 'none';
+                alert('Error embedding ICC profile. Downloading without HDR...');
+                
+                // Fallback to regular download
+                outputCanvas.toBlob((blob) => {
+                    const link = document.createElement('a');
+                    link.download = 'x-profile-hacked.png';
+                    link.href = URL.createObjectURL(blob);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                }, 'image/png');
+            }
+        });
+    </script>
+</body>
+</html>
