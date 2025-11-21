@@ -400,7 +400,7 @@ export default function Home() {
       
       <div className="container">
         <div className="header">
-          <h1 className="glitch" data-text="X PROFILE HACKER">X PICTURE HACKER</h1>
+          <h1 className="glitch" data-text="X PICTURE HACKER">X PICTURE HACKER</h1>
           <div className="subtitle">v1.337 // Makes Your Picture Shine... Literally</div>
         </div>
         
