@@ -1,4 +1,4 @@
-# ⚡ X Profile Hacker v1.337
+# ⚡ X Picture Hacker v1.337
 
 > **Make Your Profile Picture Shine... Literally!**  
 > Transform your images with HDR color profiles to create stunning, vibrant profile pictures that pop on modern displays.
