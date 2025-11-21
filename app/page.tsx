@@ -501,6 +501,7 @@ export default function Home() {
         <p>This hack makes your picture <strong>shine... literally!</strong></p>
         <p>Downloaded images include <strong>Rec2020-PQ HDR color profile</strong>!</p>
         <p>The vibrant color palette and transformation work best on:</p>
+        <div className="command-line" style={{ fontSize: '0.9em' }}>For the best results, upload square images</div>
         <div className="command-line" style={{ fontSize: '0.9em' }}>Modern smartphones with OLED/AMOLED screens</div>
         <div className="command-line" style={{ fontSize: '0.9em' }}>HDR-capable monitors and laptops</div>
         <div className="command-line" style={{ fontSize: '0.9em' }}>Tablets with HDR support</div>
