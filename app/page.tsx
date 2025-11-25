@@ -41,6 +41,7 @@ declare global {
 
 export default function Home() {
   const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null);
+  const [frameImage, setFrameImage] = useState<HTMLImageElement | null>(null);
   const [showControls, setShowControls] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,7 +53,9 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [joke, setJoke] = useState('');
   const [scriptsLoaded, setScriptsLoaded] = useState({ pako: false, qrcode: false });
-  
+  const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const outputCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,6 +67,16 @@ export default function Home() {
       if (window.pako) setScriptsLoaded(prev => ({ ...prev, pako: true }));
       if (window.QRCode) setScriptsLoaded(prev => ({ ...prev, qrcode: true }));
     }
+
+    // Load frame image
+    const frame = new Image();
+    frame.onload = () => {
+      setFrameImage(frame);
+    };
+    frame.onerror = () => {
+      console.error('Failed to load frame image');
+    };
+    frame.src = '/frame_hdr.png';
   }, []);
 
   // Redraw original canvas when image changes
@@ -75,18 +88,18 @@ export default function Home() {
     }
   }, [originalImage]);
 
-  const colorDistance = (c1: {r: number, g: number, b: number}, c2: {r: number, g: number, b: number}) => {
+  const colorDistance = (c1: { r: number, g: number, b: number }, c2: { r: number, g: number, b: number }) => {
     const rmean = (c1.r + c2.r) / 2;
     const r = c1.r - c2.r;
     const g = c1.g - c2.g;
     const b = c1.b - c2.b;
-    return Math.sqrt((2 + rmean/256) * r * r + 4 * g * g + (2 + (255-rmean)/256) * b * b);
+    return Math.sqrt((2 + rmean / 256) * r * r + 4 * g * g + (2 + (255 - rmean) / 256) * b * b);
   };
 
   const findClosestColor = (r: number, g: number, b: number) => {
     let minDist = Infinity;
     let closestColor = PALETTE[0];
-    
+
     for (const color of PALETTE) {
       const dist = colorDistance({ r, g, b }, color);
       if (dist < minDist) {
@@ -94,35 +107,43 @@ export default function Home() {
         closestColor = color;
       }
     }
-    
+
     return closestColor;
   };
 
   const drawOriginal = (img: HTMLImageElement) => {
     if (!originalCanvasRef.current) return;
-    
+
     const canvas = originalCanvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     // Clear the canvas first
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Calculate scaling to fit within canvas while maintaining aspect ratio
-    const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-    const x = (canvas.width - img.width * scale) / 2;
-    const y = (canvas.height - img.height * scale) / 2;
-    
+
+    // Calculate scaling to cover the canvas (like object-fit: cover)
+    const targetSize = 360; // Target size for the image
+    const scale = Math.max(targetSize / img.width, targetSize / img.height);
+    const scaledWidth = img.width * scale;
+    const scaledHeight = img.height * scale;
+    const x = (canvas.width - scaledWidth) / 2;
+    const y = (canvas.height - scaledHeight) / 2;
+
     // Draw with a slight delay to ensure canvas is ready
     requestAnimationFrame(() => {
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
     });
   };
 
   const handleImageUpload = (file: File) => {
     // Reset states first
     setShowDownload(false);
-    
+    setProcessedBlob(null); // Clear previous processed blob
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+      setPreviewImageUrl(null);
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -180,9 +201,10 @@ export default function Home() {
 
   const handleHack = () => {
     if (!originalImage || !outputCanvasRef.current) return;
-    
+
     setLoading(true);
-    
+    setLoadingText('⚡ HACKING IN PROGRESS...'); // Reset loading text
+
     setTimeout(() => {
       const canvas = outputCanvasRef.current!;
       const ctx = canvas.getContext('2d');
@@ -190,34 +212,58 @@ export default function Home() {
         setLoading(false);
         return;
       }
-      
+
+      const canvasSize = 400;
+      const targetSize = 360;
+
+      // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      const scale = Math.min(canvas.width / originalImage.width, canvas.height / originalImage.height);
-      const x = (canvas.width - originalImage.width * scale) / 2;
-      const y = (canvas.height - originalImage.height * scale) / 2;
-      
-      ctx.drawImage(originalImage, x, y, originalImage.width * scale, originalImage.height * scale);
-      
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        
-        const closest = findClosestColor(r, g, b);
-        
-        data[i] = closest.r;
-        data[i + 1] = closest.g;
-        data[i + 2] = closest.b;
+
+      // Step 1: Draw frame as the base layer (if available)
+      if (frameImage) {
+        ctx.drawImage(frameImage, 0, 0, canvasSize, canvasSize);
       }
-      
-      ctx.putImageData(imageData, 0, 0);
-      
-      setLoading(false);
-      setShowDownload(true);
+
+      // Step 2: Create a temporary canvas for the user image processing
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvasSize;
+      tempCanvas.height = canvasSize;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) {
+        setLoading(false);
+        return;
+      }
+
+      // Resize image to 340x340 (cover mode - crop to fill) centered on 400x400
+      const scale = Math.max(targetSize / originalImage.width, targetSize / originalImage.height);
+      const scaledWidth = originalImage.width * scale;
+      const scaledHeight = originalImage.height * scale;
+      const x = (canvasSize - scaledWidth) / 2;
+      const y = (canvasSize - scaledHeight) / 2;
+
+      tempCtx.drawImage(originalImage, x, y, scaledWidth, scaledHeight);
+
+      // Step 3: Composite user image on top of frame
+      ctx.drawImage(tempCanvas, 0, 0);
+
+      // Step 4: Embed ICC profile for preview and download
+      embedICCProfile(canvas).then((blob) => {
+        // Store the blob for download
+        setProcessedBlob(blob);
+
+        // Create object URL for preview image
+        if (previewImageUrl) {
+          URL.revokeObjectURL(previewImageUrl);
+        }
+        const url = URL.createObjectURL(blob);
+        setPreviewImageUrl(url);
+
+        setLoading(false);
+        setShowDownload(true);
+      }).catch(() => {
+        setLoading(false);
+        setShowDownload(true);
+      });
     }, 1000);
   };
 
@@ -233,53 +279,60 @@ export default function Home() {
   };
 
   const embedICCProfile = async (canvas: HTMLCanvasElement): Promise<Blob> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
-        if (!blob) return;
-        
+        if (!blob) {
+          reject(new Error('Canvas to Blob failed.'));
+          return;
+        }
+
         const reader = new FileReader();
-        reader.onload = function() {
+        reader.onload = function () {
           const arrayBuffer = this.result as ArrayBuffer;
           const uint8Array = new Uint8Array(arrayBuffer);
-          
+
           const iccProfileData = atob(ICC_PROFILE_BASE64);
           const iccBytes = new Uint8Array(iccProfileData.length);
           for (let i = 0; i < iccProfileData.length; i++) {
             iccBytes[i] = iccProfileData.charCodeAt(i);
           }
-          
+
+          if (!window.pako) {
+            reject(new Error('Pako library not loaded.'));
+            return;
+          }
           const compressed = window.pako.deflate(iccBytes);
-          
+
           const profileName = 'Rec2020-PQ';
           const nameBytes = new TextEncoder().encode(profileName);
-          
+
           const iccpData = new Uint8Array(nameBytes.length + 1 + 1 + compressed.length);
           iccpData.set(nameBytes, 0);
           iccpData[nameBytes.length] = 0;
           iccpData[nameBytes.length + 1] = 0;
           iccpData.set(compressed, nameBytes.length + 2);
-          
+
           const insertPos = 33;
           const newSize = uint8Array.length + iccpData.length + 12;
           const newPng = new Uint8Array(newSize);
-          
+
           newPng.set(uint8Array.subarray(0, insertPos), 0);
-          
+
           let pos = insertPos;
           const length = iccpData.length;
           newPng[pos++] = (length >> 24) & 0xFF;
           newPng[pos++] = (length >> 16) & 0xFF;
           newPng[pos++] = (length >> 8) & 0xFF;
           newPng[pos++] = length & 0xFF;
-          
+
           newPng[pos++] = 0x69;
           newPng[pos++] = 0x43;
           newPng[pos++] = 0x43;
           newPng[pos++] = 0x50;
-          
+
           newPng.set(iccpData, pos);
           pos += iccpData.length;
-          
+
           const crcData = new Uint8Array(4 + iccpData.length);
           crcData[0] = 0x69;
           crcData[1] = 0x43;
@@ -291,37 +344,37 @@ export default function Home() {
           newPng[pos++] = (crc >> 16) & 0xFF;
           newPng[pos++] = (crc >> 8) & 0xFF;
           newPng[pos++] = crc & 0xFF;
-          
+
           newPng.set(uint8Array.subarray(insertPos), pos);
-          
+
           const newBlob = new Blob([newPng], { type: 'image/png' });
           resolve(newBlob);
         };
+        reader.onerror = () => reject(new Error('Failed to read blob as ArrayBuffer.'));
         reader.readAsArrayBuffer(blob);
       }, 'image/png');
     });
   };
 
   const handleDownload = async () => {
-    if (!outputCanvasRef.current) return;
-    
+    if (!processedBlob) return;
+
     setLoading(true);
-    setLoadingText('⚡ EMBEDDING HDR PROFILE...');
-    
+    setLoadingText('⚡ PREPARING DOWNLOAD...');
+
     try {
-      const blob = await embedICCProfile(outputCanvasRef.current);
-      
+
       const link = document.createElement('a');
       link.download = 'x-profile-hacked-hdr.png';
-      link.href = URL.createObjectURL(blob);
+      link.href = URL.createObjectURL(processedBlob);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
-      
+
       setLoading(false);
       setLoadingText('⚡ HACKING IN PROGRESS...');
-      
+
       setTimeout(() => {
         const randomJoke = JOKES[Math.floor(Math.random() * JOKES.length)];
         setJoke(randomJoke);
@@ -332,7 +385,8 @@ export default function Home() {
       console.error('Error embedding ICC profile:', error);
       setLoading(false);
       alert('Error embedding ICC profile. Downloading without HDR...');
-      
+
+      if (!outputCanvasRef.current) return;
       outputCanvasRef.current.toBlob((blob) => {
         if (!blob) return;
         const link = document.createElement('a');
@@ -349,7 +403,7 @@ export default function Home() {
   const generateQRCode = () => {
     if (!qrContainerRef.current || !window.QRCode) return;
     if (qrContainerRef.current.hasChildNodes()) return;
-    
+
     new window.QRCode(qrContainerRef.current, {
       text: `ethereum:${ETH_ADDRESS}`,
       width: 200,
@@ -385,25 +439,25 @@ export default function Home() {
 
   return (
     <>
-      <Script 
-        src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js" 
+      <Script
+        src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"
         strategy="beforeInteractive"
         onLoad={() => setScriptsLoaded(prev => ({ ...prev, pako: true }))}
       />
-      <Script 
-        src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" 
+      <Script
+        src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
         strategy="beforeInteractive"
         onLoad={() => setScriptsLoaded(prev => ({ ...prev, qrcode: true }))}
       />
-      
+
       <div className="scanlines"></div>
-      
+
       <div className="container">
         <div className="header">
           <h1 className="glitch" data-text="X PICTURE HACKER">X PICTURE HACKER</h1>
           <div className="subtitle">v1.337 // Makes Your Picture Shine... Literally</div>
         </div>
-        
+
         <div className="terminal">
           <div className="terminal-header">
             <div className="terminal-dot dot-red"></div>
@@ -411,14 +465,14 @@ export default function Home() {
             <div className="terminal-dot dot-green"></div>
             <div className="terminal-title">root@x-hacker:~/image-transform</div>
           </div>
-          
+
           <div className="command-line">Initializing color palette exploit...</div>
           <div className="command-line">Loading quantum chromatic filters...</div>
           <div className="command-line">Ready to hack your profile pic!</div>
         </div>
-        
+
         <div className="terminal">
-          <div 
+          <div
             className={`upload-zone ${isDragging ? 'dragging' : ''}`}
             onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
@@ -432,18 +486,18 @@ export default function Home() {
             <div style={{ color: '#00aa00', fontSize: '0.9em' }}>
               or click to select from your files
             </div>
-            <input 
-              type="file" 
+            <input
+              type="file"
               ref={fileInputRef}
               accept="image/*"
               onChange={handleFileChange}
             />
           </div>
-          
+
           {showControls && (
             <div className="controls-container">
-              <button 
-                onClick={handleHack} 
+              <button
+                onClick={handleHack}
                 disabled={loading}
               >
                 🔓 EXECUTE HACK
@@ -455,27 +509,40 @@ export default function Home() {
               )}
             </div>
           )}
-          
+
           {loading && (
             <div className="loading">
               {loadingText}
             </div>
           )}
         </div>
-        
+
         {showPreview && (
           <div className="preview-container">
             <div className="preview-box">
               <h3>// ORIGINAL</h3>
-              <canvas ref={originalCanvasRef} width="300" height="300"></canvas>
+              <canvas ref={originalCanvasRef} width="400" height="400"></canvas>
             </div>
             <div className="preview-box">
               <h3>// HACKED</h3>
-              <canvas ref={outputCanvasRef} width="300" height="300"></canvas>
+              <canvas
+                ref={outputCanvasRef}
+                width="400"
+                height="400"
+                style={{ display: previewImageUrl ? 'none' : 'block' }}
+              ></canvas>
+              {previewImageUrl && (
+                <img
+                  src={previewImageUrl}
+                  alt="Hacked preview"
+                  width="400"
+                  height="400"
+                />
+              )}
             </div>
           </div>
         )}
-        
+
         <div className="footer">
           <div>▲ Powered by Terminal Wizardry ▲</div>
           <div style={{ marginTop: '10px', fontSize: '0.8em' }}>
@@ -486,15 +553,15 @@ export default function Home() {
           </div>
         </div>
       </div>
-      
-      <button 
-        className="info-button" 
+
+      <button
+        className="info-button"
         onClick={() => setShowHdrModal(!showHdrModal)}
         title="HDR Information"
       >
         ?
       </button>
-      
+
       <div className={`hdr-modal ${showHdrModal ? 'active' : ''}`}>
         <button className="close-hdr" onClick={() => setShowHdrModal(false)}>×</button>
         <h3>⚡ HDR DISPLAY INFO</h3>
@@ -507,22 +574,22 @@ export default function Home() {
         <div className="command-line" style={{ fontSize: '0.9em' }}>Tablets with HDR support</div>
         <p style={{ marginTop: '15px', fontSize: '0.9em' }}>Your transformed image will display HDR colors that truly <em>pop</em>! ✨</p>
       </div>
-      
+
       <div className={`modal-overlay ${showDonationModal ? 'active' : ''}`} onClick={(e) => {
         if (e.target === e.currentTarget) setShowDonationModal(false);
       }}>
         <div className="modal-content">
           <button className="close-modal" onClick={() => setShowDonationModal(false)}>×</button>
-          
+
           <div className="modal-header">
             <div className="crypto-icon">💎</div>
             <h2 className="glitch" data-text="HACK SUCCESSFUL!">HACK SUCCESSFUL!</h2>
           </div>
-          
+
           <div className="modal-joke">
             {joke}
           </div>
-          
+
           <div className="eth-address-container">
             <div className="eth-label">// EVM DONATION ADDRESS (ETH, BSC, POLYGON, ARBITRUM, BASE, etc.)</div>
             <div className="eth-address" onClick={copyAddress} title="Click to copy">
@@ -532,13 +599,13 @@ export default function Home() {
               {copied ? '✅ COPIED!' : '📋 COPY ADDRESS'}
             </button>
           </div>
-          
+
           <div className="qr-code-container">
             <div className="qr-code">
               <div ref={qrContainerRef}></div>
             </div>
           </div>
-          
+
           <div className="modal-footer">
             <div className="command-line">No pressure, but your donation helps keep this hack alive!</div>
             <div style={{ marginTop: '10px' }}>
@@ -546,7 +613,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-    </div>
+      </div>
     </>
   );
 }
