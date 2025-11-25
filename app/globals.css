@@ -200,7 +200,8 @@ button:disabled {
     font-size: 1em;
 }
 
-.preview-box canvas {
+.preview-box canvas,
+.preview-box img {
     border: 2px solid #00ff00;
     max-width: 100%;
     width: 100%;
