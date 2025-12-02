@@ -54,11 +54,14 @@ export default function Home() {
   const [joke, setJoke] = useState('');
   const [scriptsLoaded, setScriptsLoaded] = useState({ pako: false, qrcode: false });
   const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
+  const [processedBlobWithFrame, setProcessedBlobWithFrame] = useState<Blob | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImageUrlWithFrame, setPreviewImageUrlWithFrame] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const outputCanvasRef = useRef<HTMLCanvasElement>(null);
+  const outputCanvasWithFrameRef = useRef<HTMLCanvasElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -139,9 +142,14 @@ export default function Home() {
     // Reset states first
     setShowDownload(false);
     setProcessedBlob(null); // Clear previous processed blob
+    setProcessedBlobWithFrame(null); // Clear previous processed blob with frame
     if (previewImageUrl) {
       URL.revokeObjectURL(previewImageUrl);
       setPreviewImageUrl(null);
+    }
+    if (previewImageUrlWithFrame) {
+      URL.revokeObjectURL(previewImageUrlWithFrame);
+      setPreviewImageUrlWithFrame(null);
     }
 
     const reader = new FileReader();
@@ -208,6 +216,7 @@ export default function Home() {
     setTimeout(() => {
       const canvas = outputCanvasRef.current!;
       const ctx = canvas.getContext('2d');
+
       if (!ctx) {
         setLoading(false);
         return;
@@ -219,12 +228,7 @@ export default function Home() {
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Step 1: Draw frame as the base layer (if available)
-      if (frameImage) {
-        ctx.drawImage(frameImage, 0, 0, canvasSize, canvasSize);
-      }
-
-      // Step 2: Create a temporary canvas for the user image processing
+      // Create a temporary canvas for the user image processing
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = canvasSize;
       tempCanvas.height = canvasSize;
@@ -234,7 +238,7 @@ export default function Home() {
         return;
       }
 
-      // Resize image to 340x340 (cover mode - crop to fill) centered on 400x400
+      // Resize image to 360x360 (cover mode - crop to fill) centered on 400x400
       const scale = Math.max(targetSize / originalImage.width, targetSize / originalImage.height);
       const scaledWidth = originalImage.width * scale;
       const scaledHeight = originalImage.height * scale;
@@ -243,10 +247,10 @@ export default function Home() {
 
       tempCtx.drawImage(originalImage, x, y, scaledWidth, scaledHeight);
 
-      // Step 3: Composite user image on top of frame
+      // Without frame - just the processed image
       ctx.drawImage(tempCanvas, 0, 0);
 
-      // Step 4: Embed ICC profile for preview and download
+      // Embed ICC profile for preview and download
       embedICCProfile(canvas).then((blob) => {
         // Store the blob for download
         setProcessedBlob(blob);
@@ -255,6 +259,7 @@ export default function Home() {
         if (previewImageUrl) {
           URL.revokeObjectURL(previewImageUrl);
         }
+
         const url = URL.createObjectURL(blob);
         setPreviewImageUrl(url);
 
@@ -363,7 +368,6 @@ export default function Home() {
     setLoadingText('⚡ PREPARING DOWNLOAD...');
 
     try {
-
       const link = document.createElement('a');
       link.download = 'x-profile-hacked-hdr.png';
       link.href = URL.createObjectURL(processedBlob);
@@ -382,21 +386,40 @@ export default function Home() {
         generateQRCode();
       }, 500);
     } catch (error) {
-      console.error('Error embedding ICC profile:', error);
+      console.error('Error downloading image:', error);
       setLoading(false);
-      alert('Error embedding ICC profile. Downloading without HDR...');
+      alert('Error downloading image. Please try again.');
+    }
+  };
 
-      if (!outputCanvasRef.current) return;
-      outputCanvasRef.current.toBlob((blob) => {
-        if (!blob) return;
-        const link = document.createElement('a');
-        link.download = 'x-profile-hacked.png';
-        link.href = URL.createObjectURL(blob);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-      }, 'image/png');
+  const handleDownloadWithFrame = async () => {
+    if (!processedBlobWithFrame) return;
+
+    setLoading(true);
+    setLoadingText('⚡ PREPARING DOWNLOAD...');
+
+    try {
+      const link = document.createElement('a');
+      link.download = 'x-profile-hacked-frame-hdr.png';
+      link.href = URL.createObjectURL(processedBlobWithFrame);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      setLoading(false);
+      setLoadingText('⚡ HACKING IN PROGRESS...');
+
+      setTimeout(() => {
+        const randomJoke = JOKES[Math.floor(Math.random() * JOKES.length)];
+        setJoke(randomJoke);
+        setShowDonationModal(true);
+        generateQRCode();
+      }, 500);
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      setLoading(false);
+      alert('Error downloading image. Please try again.');
     }
   };
 
@@ -503,9 +526,14 @@ export default function Home() {
                 🔓 EXECUTE HACK
               </button>
               {showDownload && (
-                <button onClick={handleDownload}>
-                  💾 DOWNLOAD HDR
-                </button>
+                <>
+                  <button onClick={handleDownload}>
+                    💾 DOWNLOAD HDR
+                  </button>
+                  {/* <button onClick={handleDownloadWithFrame}>
+                    💾 DOWNLOAD (With Frame)
+                  </button> */}
+                </>
               )}
             </div>
           )}
@@ -524,7 +552,7 @@ export default function Home() {
               <canvas ref={originalCanvasRef} width="400" height="400"></canvas>
             </div>
             <div className="preview-box">
-              <h3>// HACKED</h3>
+              <h3>// HACKED (No Frame)</h3>
               <canvas
                 ref={outputCanvasRef}
                 width="400"
@@ -534,12 +562,29 @@ export default function Home() {
               {previewImageUrl && (
                 <img
                   src={previewImageUrl}
-                  alt="Hacked preview"
+                  alt="Hacked preview without frame"
                   width="400"
                   height="400"
                 />
               )}
             </div>
+            {/* <div className="preview-box">
+              <h3>// HACKED (With Frame)</h3>
+              <canvas
+                ref={outputCanvasWithFrameRef}
+                width="400"
+                height="400"
+                style={{ display: previewImageUrlWithFrame ? 'none' : 'block' }}
+              ></canvas>
+              {previewImageUrlWithFrame && (
+                <img
+                  src={previewImageUrlWithFrame}
+                  alt="Hacked preview with frame"
+                  width="400"
+                  height="400"
+                />
+              )}
+            </div> */}
           </div>
         )}
 
