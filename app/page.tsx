@@ -61,6 +61,7 @@ export default function Home() {
   const [previewImageUrlWithFrame, setPreviewImageUrlWithFrame] = useState<string | null>(null);
   const [brightness, setBrightness] = useState(100);
   const [glow, setGlow] = useState(0);
+  const [mode, setMode] = useState<'pfp' | 'header'>('pfp');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -129,8 +130,8 @@ export default function Home() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Calculate scaling to cover the canvas (like object-fit: cover)
-    const targetSize = 360; // Target size for the image
-    const scale = Math.max(targetSize / img.width, targetSize / img.height);
+    // Use actual canvas dimensions for target size
+    const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
     const scaledWidth = img.width * scale;
     const scaledHeight = img.height * scale;
     const x = (canvas.width - scaledWidth) / 2;
@@ -211,6 +212,28 @@ export default function Home() {
     setIsDragging(false);
   };
 
+  const resetState = () => {
+    setOriginalImage(null);
+    setProcessedBlob(null);
+    setProcessedBlobWithFrame(null);
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+      setPreviewImageUrl(null);
+    }
+    if (previewImageUrlWithFrame) {
+      URL.revokeObjectURL(previewImageUrlWithFrame);
+      setPreviewImageUrlWithFrame(null);
+    }
+    setShowPreview(false);
+    setShowControls(false);
+    setShowDownload(false);
+    setShowDonationModal(false);
+    setLoading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleHack = () => {
     if (!originalImage || !outputCanvasRef.current) return;
 
@@ -229,29 +252,70 @@ export default function Home() {
       const canvasSize = 400;
       const targetSize = 360;
 
+      // Set canvas dimensions based on mode
+      if (mode === 'header') {
+        canvas.width = 1500;
+        canvas.height = 500;
+      } else {
+        canvas.width = 400;
+        canvas.height = 400;
+      }
+
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Create a temporary canvas for the user image processing
       const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = canvasSize;
-      tempCanvas.height = canvasSize;
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
       const tempCtx = tempCanvas.getContext('2d');
       if (!tempCtx) {
         setLoading(false);
         return;
       }
 
-      // Resize image to 360x360 (cover mode - crop to fill) centered on 400x400
-      const scale = Math.max(targetSize / originalImage.width, targetSize / originalImage.height);
-      const scaledWidth = originalImage.width * scale;
-      const scaledHeight = originalImage.height * scale;
-      const x = (canvasSize - scaledWidth) / 2;
-      const y = (canvasSize - scaledHeight) / 2;
+      // Calculate scaling to cover the canvas
+      let scale, scaledWidth, scaledHeight, x, y;
+
+      if (mode === 'header') {
+        // For header: cover 1500x500
+        scale = Math.max(1500 / originalImage.width, 500 / originalImage.height);
+        scaledWidth = originalImage.width * scale;
+        scaledHeight = originalImage.height * scale;
+        x = (1500 - scaledWidth) / 2;
+        y = (500 - scaledHeight) / 2;
+      } else {
+        // For PFP: cover 400x400 (full canvas)
+        scale = Math.max(canvasSize / originalImage.width, canvasSize / originalImage.height);
+        scaledWidth = originalImage.width * scale;
+        scaledHeight = originalImage.height * scale;
+        x = (canvasSize - scaledWidth) / 2;
+        y = (canvasSize - scaledHeight) / 2;
+      }
 
       // Apply brightness
       tempCtx.filter = `brightness(${brightness}%)`;
       tempCtx.drawImage(originalImage, x, y, scaledWidth, scaledHeight);
+
+      // Palette reduction removed for header mode as per user request
+      // if (mode === 'header') {
+      //   const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      //   const data = imageData.data;
+      //
+      //   for (let i = 0; i < data.length; i += 4) {
+      //     const r = data[i];
+      //     const g = data[i + 1];
+      //     const b = data[i + 2];
+      //
+      //     const closest = findClosestColor(r, g, b);
+      //
+      //     data[i] = closest.r;
+      //     data[i + 1] = closest.g;
+      //     data[i + 2] = closest.b;
+      //   }
+      //
+      //   tempCtx.putImageData(imageData, 0, 0);
+      // }
 
       // Apply glow (bloom effect)
       if (glow > 0) {
@@ -265,25 +329,65 @@ export default function Home() {
       // Without frame - just the processed image
       ctx.drawImage(tempCanvas, 0, 0);
 
-      // Embed ICC profile for preview and download
-      embedICCProfile(canvas).then((blob) => {
-        // Store the blob for download
-        setProcessedBlob(blob);
+      // Frame drawing removed as per user request
+      // if (mode === 'pfp' && frameImage) {
+      //   ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
+      // }
 
-        // Create object URL for preview image
-        if (previewImageUrl) {
-          URL.revokeObjectURL(previewImageUrl);
-        }
+      if (mode === 'header') {
+        // For header, export as JPEG and embed ICC profile
+        canvas.toBlob((blob) => {
+          if (blob) {
+            embedICCProfileJPEG(blob).then((newBlob) => {
+              setProcessedBlob(newBlob);
 
-        const url = URL.createObjectURL(blob);
-        setPreviewImageUrl(url);
+              if (previewImageUrl) {
+                URL.revokeObjectURL(previewImageUrl);
+              }
+              const url = URL.createObjectURL(newBlob);
+              setPreviewImageUrl(url);
 
-        setLoading(false);
-        setShowDownload(true);
-      }).catch(() => {
-        setLoading(false);
-        setShowDownload(true);
-      });
+              setLoading(false);
+              setShowDownload(true);
+            }).catch((err) => {
+              console.error('Error embedding ICC profile in JPEG:', err);
+              // Fallback to original blob if embedding fails
+              setProcessedBlob(blob);
+
+              if (previewImageUrl) {
+                URL.revokeObjectURL(previewImageUrl);
+              }
+              const url = URL.createObjectURL(blob);
+              setPreviewImageUrl(url);
+
+              setLoading(false);
+              setShowDownload(true);
+            });
+          } else {
+            setLoading(false);
+          }
+        }, 'image/jpeg', 0.9);
+      } else {
+        // Embed ICC profile for preview and download (PNG only)
+        embedICCProfile(canvas).then((blob) => {
+          // Store the blob for download
+          setProcessedBlob(blob);
+
+          // Create object URL for preview image
+          if (previewImageUrl) {
+            URL.revokeObjectURL(previewImageUrl);
+          }
+
+          const url = URL.createObjectURL(blob);
+          setPreviewImageUrl(url);
+
+          setLoading(false);
+          setShowDownload(true);
+        }).catch(() => {
+          setLoading(false);
+          setShowDownload(true);
+        });
+      }
     }, 1000);
   };
 
@@ -376,6 +480,86 @@ export default function Home() {
     });
   };
 
+  const embedICCProfileJPEG = async (blob: Blob): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const arrayBuffer = this.result as ArrayBuffer;
+          const uint8Array = new Uint8Array(arrayBuffer);
+
+          // Decode base64 ICC profile
+          const iccProfileData = atob(ICC_PROFILE_BASE64);
+          const iccBytes = new Uint8Array(iccProfileData.length);
+          for (let i = 0; i < iccProfileData.length; i++) {
+            iccBytes[i] = iccProfileData.charCodeAt(i);
+          }
+
+          // Construct APP2 marker payload
+          // Identifier "ICC_PROFILE\0" (12 bytes) + Chunk count (1 byte) + Total chunks (1 byte) = 14 bytes header
+          const identifier = "ICC_PROFILE\0";
+          const headerLength = 14;
+          const payloadLength = headerLength + iccBytes.length;
+          const markerLength = 2 + payloadLength; // 2 bytes for length field itself
+
+          // Check if it fits in one segment (JPEG segment limit is 65535 bytes)
+          if (markerLength > 65535) {
+            console.warn("ICC profile too large for single JPEG segment, splitting not implemented.");
+            // For now, just return original if too large (unlikely for this specific profile)
+            resolve(blob);
+            return;
+          }
+
+          const app2Segment = new Uint8Array(markerLength + 2); // +2 for marker tag 0xFFE2
+          let pos = 0;
+
+          // Marker tag
+          app2Segment[pos++] = 0xFF;
+          app2Segment[pos++] = 0xE2;
+
+          // Length (high byte, low byte) - includes the 2 bytes for length itself
+          app2Segment[pos++] = (markerLength >> 8) & 0xFF;
+          app2Segment[pos++] = markerLength & 0xFF;
+
+          // Identifier
+          for (let i = 0; i < identifier.length; i++) {
+            app2Segment[pos++] = identifier.charCodeAt(i);
+          }
+
+          // Chunk count (1) and Total chunks (1)
+          app2Segment[pos++] = 1;
+          app2Segment[pos++] = 1;
+
+          // Profile data
+          app2Segment.set(iccBytes, pos);
+
+          // Find insertion point
+          // Start after SOI (0xFFD8)
+          let insertIndex = 2;
+
+          // Check if APP0 exists (0xFFE0)
+          if (uint8Array[2] === 0xFF && uint8Array[3] === 0xE0) {
+            // Read length of APP0
+            const app0Length = (uint8Array[4] << 8) | uint8Array[5];
+            insertIndex = 4 + app0Length; // Skip APP0 marker (2) + length (2) + payload (length-2) = 2 + length
+          }
+
+          // Construct new file
+          const newJpeg = new Uint8Array(uint8Array.length + app2Segment.length);
+          newJpeg.set(uint8Array.subarray(0, insertIndex), 0);
+          newJpeg.set(app2Segment, insertIndex);
+          newJpeg.set(uint8Array.subarray(insertIndex), insertIndex + app2Segment.length);
+
+          resolve(new Blob([newJpeg], { type: 'image/jpeg' }));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read blob as ArrayBuffer.'));
+      reader.readAsArrayBuffer(blob);
+    });
+  };
+
   const handleDownload = async () => {
     if (!processedBlob) return;
 
@@ -384,7 +568,7 @@ export default function Home() {
 
     try {
       const link = document.createElement('a');
-      link.download = 'x-profile-hacked-hdr.png';
+      link.download = mode === 'header' ? 'x-background-hacked-hdr.jpeg' : 'x-profile-hacked-hdr.png';
       link.href = URL.createObjectURL(processedBlob);
       document.body.appendChild(link);
       link.click();
@@ -533,6 +717,27 @@ export default function Home() {
         </div>
 
         <div className="terminal">
+          <div className="mode-switcher">
+            <button
+              className={`mode-button ${mode === 'pfp' ? 'active' : ''}`}
+              onClick={() => {
+                setMode('pfp');
+                resetState();
+              }}
+            >
+              PROFILE PIC
+            </button>
+            <button
+              className={`mode-button ${mode === 'header' ? 'active' : ''}`}
+              onClick={() => {
+                setMode('header');
+                resetState();
+              }}
+            >
+              X BACKGROUND
+            </button>
+          </div>
+
           <div
             className={`upload-zone ${isDragging ? 'dragging' : ''}`}
             onClick={() => fileInputRef.current?.click()}
@@ -615,17 +820,24 @@ export default function Home() {
         </div>
 
         {showPreview && (
-          <div className="preview-container">
+          <div
+            className="preview-container"
+            style={mode === 'header' ? { gridTemplateColumns: '1fr' } : {}}
+          >
             <div className="preview-box">
               <h3>// ORIGINAL</h3>
-              <canvas ref={originalCanvasRef} width="400" height="400"></canvas>
+              <canvas
+                ref={originalCanvasRef}
+                width={mode === 'header' ? 1500 : 400}
+                height={mode === 'header' ? 500 : 400}
+              ></canvas>
             </div>
             <div className="preview-box">
               <h3>// HACKED (No Frame)</h3>
               <canvas
                 ref={outputCanvasRef}
-                width="400"
-                height="400"
+                width={mode === 'header' ? 1500 : 400}
+                height={mode === 'header' ? 500 : 400}
                 style={{ display: previewImageUrl ? 'none' : 'block' }}
               ></canvas>
               {previewImageUrl && (
@@ -649,8 +861,8 @@ export default function Home() {
                 <img
                   src={previewImageUrlWithFrame}
                   alt="Hacked preview with frame"
-                  width="400"
-                  height="400"
+                  width={mode === 'header' ? 1500 : 400}
+                  height={mode === 'header' ? 500 : 400}
                 />
               )}
             </div> */}
