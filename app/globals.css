@@ -21,11 +21,9 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(
-        to bottom,
-        transparent 50%,
-        rgba(0, 255, 0, 0.02) 51%
-    );
+    background: linear-gradient(to bottom,
+            transparent 50%,
+            rgba(0, 255, 0, 0.02) 51%);
     background-size: 100% 4px;
     pointer-events: none;
     z-index: 9999;
@@ -33,8 +31,13 @@ body {
 }
 
 @keyframes scanline {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(100%); }
+    0% {
+        transform: translateY(0);
+    }
+
+    100% {
+        transform: translateY(100%);
+    }
 }
 
 .container {
@@ -75,8 +78,15 @@ h1 {
 }
 
 @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
 }
 
 .subtitle {
@@ -107,9 +117,17 @@ h1 {
     margin-right: 8px;
 }
 
-.dot-red { background: #ff5f56; }
-.dot-yellow { background: #ffbd2e; }
-.dot-green { background: #27c93f; }
+.dot-red {
+    background: #ff5f56;
+}
+
+.dot-yellow {
+    background: #ffbd2e;
+}
+
+.dot-green {
+    background: #27c93f;
+}
 
 .terminal-title {
     margin-left: 10px;
@@ -231,8 +249,15 @@ button:disabled {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 .command-line {
@@ -269,7 +294,7 @@ button:disabled {
         grid-template-columns: 1fr;
         gap: 15px;
     }
-    
+
     h1 {
         font-size: 1.8em;
     }
@@ -394,21 +419,55 @@ button:disabled {
 }
 
 @keyframes glitch-1 {
-    0% { transform: translate(0); }
-    20% { transform: translate(-2px, 2px); }
-    40% { transform: translate(-2px, -2px); }
-    60% { transform: translate(2px, 2px); }
-    80% { transform: translate(2px, -2px); }
-    100% { transform: translate(0); }
+    0% {
+        transform: translate(0);
+    }
+
+    20% {
+        transform: translate(-2px, 2px);
+    }
+
+    40% {
+        transform: translate(-2px, -2px);
+    }
+
+    60% {
+        transform: translate(2px, 2px);
+    }
+
+    80% {
+        transform: translate(2px, -2px);
+    }
+
+    100% {
+        transform: translate(0);
+    }
 }
 
 @keyframes glitch-2 {
-    0% { transform: translate(0); }
-    20% { transform: translate(2px, -2px); }
-    40% { transform: translate(2px, 2px); }
-    60% { transform: translate(-2px, -2px); }
-    80% { transform: translate(-2px, 2px); }
-    100% { transform: translate(0); }
+    0% {
+        transform: translate(0);
+    }
+
+    20% {
+        transform: translate(2px, -2px);
+    }
+
+    40% {
+        transform: translate(2px, 2px);
+    }
+
+    60% {
+        transform: translate(-2px, -2px);
+    }
+
+    80% {
+        transform: translate(-2px, 2px);
+    }
+
+    100% {
+        transform: translate(0);
+    }
 }
 
 .modal-overlay {
@@ -424,8 +483,13 @@ button:disabled {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .modal-overlay.active {
@@ -450,6 +514,7 @@ button:disabled {
         transform: translateY(-50px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -574,36 +639,52 @@ button:disabled {
 }
 
 @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
 }
 
-.info-button {
+.floating-buttons {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 50px;
-    height: 50px;
+    display: flex;
+    gap: 15px;
+    z-index: 9998;
+}
+
+.info-button,
+.donate-button {
+    width: auto;
+    height: 44px;
+    padding: 0 20px;
     background: #00ff00;
     color: #000;
     border: 2px solid #00ff00;
-    border-radius: 50%;
-    font-size: 24px;
+    border-radius: 22px;
+    font-size: 16px;
     font-weight: bold;
     cursor: pointer;
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
     transition: all 0.3s;
-    z-index: 9998;
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
 }
 
-.info-button:hover {
+.info-button:hover,
+.donate-button:hover {
     background: #00aa00;
     box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
-    transform: scale(1.1) rotate(10deg);
+    transform: scale(1.05);
 }
 
 .hdr-modal {
@@ -629,6 +710,7 @@ button:disabled {
         transform: translateY(20px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
