@@ -31,6 +31,7 @@ const PALETTE = [
 ];
 
 const ETH_ADDRESS = "0x63428e70a8016d10E8e2f7da440c898063afA299";
+const SOL_ADDRESS = "A9WhScRwD17KteCkQRK7UN5zxP9C1WjSe5EwSW3YRXA5";
 
 declare global {
   interface Window {
@@ -51,12 +52,15 @@ export default function Home() {
   const [showHdrModal, setShowHdrModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedSol, setCopiedSol] = useState(false);
   const [joke, setJoke] = useState('');
   const [scriptsLoaded, setScriptsLoaded] = useState({ pako: false, qrcode: false });
   const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
   const [processedBlobWithFrame, setProcessedBlobWithFrame] = useState<Blob | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewImageUrlWithFrame, setPreviewImageUrlWithFrame] = useState<string | null>(null);
+  const [brightness, setBrightness] = useState(100);
+  const [glow, setGlow] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -245,7 +249,18 @@ export default function Home() {
       const x = (canvasSize - scaledWidth) / 2;
       const y = (canvasSize - scaledHeight) / 2;
 
+      // Apply brightness
+      tempCtx.filter = `brightness(${brightness}%)`;
       tempCtx.drawImage(originalImage, x, y, scaledWidth, scaledHeight);
+
+      // Apply glow (bloom effect)
+      if (glow > 0) {
+        tempCtx.save();
+        tempCtx.globalCompositeOperation = 'screen';
+        tempCtx.filter = `blur(${glow}px)`;
+        tempCtx.drawImage(originalImage, x, y, scaledWidth, scaledHeight);
+        tempCtx.restore();
+      }
 
       // Without frame - just the processed image
       ctx.drawImage(tempCanvas, 0, 0);
@@ -460,6 +475,29 @@ export default function Home() {
     }
   };
 
+  const copySolAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(SOL_ADDRESS);
+      setCopiedSol(true);
+      setTimeout(() => setCopiedSol(false), 2000);
+    } catch (err) {
+      const textArea = document.createElement('textarea');
+      textArea.value = SOL_ADDRESS;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopiedSol(true);
+        setTimeout(() => setCopiedSol(false), 2000);
+      } catch (err) {
+        alert('Failed to copy. Please copy manually: ' + SOL_ADDRESS);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   return (
     <>
       <Script
@@ -519,6 +557,37 @@ export default function Home() {
 
           {showControls && (
             <div className="controls-container">
+              <div className="sliders-container" style={{ width: '100%', marginBottom: '20px', padding: '0 10px' }}>
+                <div className="control-group" style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#0f0', fontFamily: 'monospace' }}>
+                    <span>BRIGHTNESS</span>
+                    <span>{brightness}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={brightness}
+                    onChange={(e) => setBrightness(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: '#0f0' }}
+                  />
+                </div>
+                <div className="control-group">
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#0f0', fontFamily: 'monospace' }}>
+                    <span>GLOW</span>
+                    <span>{glow}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    value={glow}
+                    onChange={(e) => setGlow(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: '#0f0' }}
+                  />
+                </div>
+              </div>
+
               <button
                 onClick={handleHack}
                 disabled={loading}
@@ -599,13 +668,26 @@ export default function Home() {
         </div>
       </div>
 
-      <button
-        className="info-button"
-        onClick={() => setShowHdrModal(!showHdrModal)}
-        title="HDR Information"
-      >
-        ?
-      </button>
+      <div className="floating-buttons">
+        <button
+          className="donate-button"
+          onClick={() => {
+            const randomJoke = JOKES[Math.floor(Math.random() * JOKES.length)];
+            setJoke(randomJoke);
+            setShowDonationModal(true);
+            generateQRCode();
+          }}
+        >
+          DONATE
+        </button>
+        <button
+          className="info-button"
+          onClick={() => setShowHdrModal(!showHdrModal)}
+          title="HDR Information"
+        >
+          INFO
+        </button>
+      </div>
 
       <div className={`hdr-modal ${showHdrModal ? 'active' : ''}`}>
         <button className="close-hdr" onClick={() => setShowHdrModal(false)}>×</button>
@@ -642,6 +724,16 @@ export default function Home() {
             </div>
             <button className={`copy-button ${copied ? 'copied' : ''}`} onClick={copyAddress}>
               {copied ? '✅ COPIED!' : '📋 COPY ADDRESS'}
+            </button>
+          </div>
+
+          <div className="eth-address-container" style={{ marginTop: '15px' }}>
+            <div className="eth-label">// SOLANA DONATION ADDRESS</div>
+            <div className="eth-address" onClick={copySolAddress} title="Click to copy">
+              {SOL_ADDRESS}
+            </div>
+            <button className={`copy-button ${copiedSol ? 'copied' : ''}`} onClick={copySolAddress}>
+              {copiedSol ? '✅ COPIED!' : '📋 COPY ADDRESS'}
             </button>
           </div>
 
