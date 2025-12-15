@@ -335,38 +335,64 @@ export default function Home() {
       // }
 
       if (mode === 'header') {
-        // For header, export as JPEG and embed ICC profile
-        canvas.toBlob((blob) => {
-          if (blob) {
-            embedICCProfileJPEG(blob).then((newBlob) => {
-              setProcessedBlob(newBlob);
+        const optimizeAndSetBlob = async () => {
+          let quality = 0.9;
+          let finalBlob: Blob | null = null;
+          const MAX_SIZE = 200 * 1024; // 200KB
 
-              if (previewImageUrl) {
-                URL.revokeObjectURL(previewImageUrl);
-              }
-              const url = URL.createObjectURL(newBlob);
-              setPreviewImageUrl(url);
+          while (quality >= 0.1) {
+            const blob = await new Promise<Blob | null>((resolve) =>
+              canvas.toBlob(resolve, 'image/jpeg', quality)
+            );
 
-              setLoading(false);
-              setShowDownload(true);
-            }).catch((err) => {
+            if (!blob) break;
+
+            // Embed ICC profile
+            let blobWithICC: Blob;
+            try {
+              blobWithICC = await embedICCProfileJPEG(blob);
+            } catch (err) {
               console.error('Error embedding ICC profile in JPEG:', err);
-              // Fallback to original blob if embedding fails
-              setProcessedBlob(blob);
+              blobWithICC = blob;
+            }
 
-              if (previewImageUrl) {
-                URL.revokeObjectURL(previewImageUrl);
+            if (blobWithICC.size <= MAX_SIZE) {
+              finalBlob = blobWithICC;
+              break;
+            }
+
+            quality -= 0.1;
+          }
+
+          if (!finalBlob) {
+            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.1));
+            if (blob) {
+              try {
+                finalBlob = await embedICCProfileJPEG(blob);
+              } catch {
+                finalBlob = blob;
               }
-              const url = URL.createObjectURL(blob);
-              setPreviewImageUrl(url);
+            }
+          }
 
-              setLoading(false);
-              setShowDownload(true);
-            });
+          if (finalBlob) {
+            setProcessedBlob(finalBlob);
+
+            if (previewImageUrl) {
+              URL.revokeObjectURL(previewImageUrl);
+            }
+            const url = URL.createObjectURL(finalBlob);
+            setPreviewImageUrl(url);
+
+            setLoading(false);
+            setShowDownload(true);
           } else {
             setLoading(false);
+            alert('Failed to generate image. Please try a smaller image.');
           }
-        }, 'image/jpeg', 0.9);
+        };
+
+        optimizeAndSetBlob();
       } else {
         // Embed ICC profile for preview and download (PNG only)
         embedICCProfile(canvas).then((blob) => {
